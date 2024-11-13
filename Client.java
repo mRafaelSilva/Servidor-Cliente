@@ -72,24 +72,39 @@ public class Client {
             int taskClientId = Integer.parseInt(parts[2]);
             String comando = parts[4];
             
-            String[] comandoPartes = comando.split(",");
-
-            int frequencia = Integer.parseInt(parts[5]);
-            
             if (4 == tipo && taskClientId == clientId) {
-                System.out.println("Recebi a tarefa: " + comando + " com frequência de " + frequencia + " segundos.");
 
-                // Envia o ACK ao servidor
-                int ackSequenceNumber = sequenceNumber.getAndIncrement();
-                String ackMessage = createAckDatagram(3, ackSequenceNumber, clientId);
-                DatagramPacket ackPacket = new DatagramPacket(
-                        ackMessage.getBytes(), ackMessage.length(), serverAddress, SERVER_PORT
-                );
-                socket.send(ackPacket);
-                System.out.println("ACK enviado ao servidor.");
+                String[] comandoPartes = comando.split(",");
+                String taskId = null, codigo = null;
+                int frequencia = 0;
+    
+                for (String part : comandoPartes) {
+                    if (part.startsWith("task_id=")) {
+                        taskId = part.split("=")[1];
+                    } else if (part.startsWith("command=")) {
+                        codigo = part.split("=")[1];
+                    } else if (part.startsWith("frequency=")) {
+                        frequencia = Integer.parseInt(part.split("=")[1]);
+                    }
+                }
 
-                // Executa a tarefa recebida
-                executeTask(comando, frequencia);
+                if (taskId != null && comando != null && frequencia > 0) {
+                    System.out.println("Recebi a tarefa: " + codigo + " com frequência de " + frequencia + " segundos.");
+
+                    // Envia o ACK ao servidor
+                    int ackSequenceNumber = sequenceNumber.getAndIncrement();
+                    String ackMessage = createAckDatagram(3, ackSequenceNumber, clientId);
+                    DatagramPacket ackPacket = new DatagramPacket(
+                            ackMessage.getBytes(), ackMessage.length(), serverAddress, SERVER_PORT
+                    );
+                    socket.send(ackPacket);
+                    System.out.println("ACK enviado ao servidor.");
+
+                    // Executa a tarefa recebida
+                    executeTask(codigo, frequencia);
+                } else {
+                    System.out.println("Erro ao interpretar os campos da tarefa.");
+                }
             } else {
                 System.out.println("Tarefa recebida não corresponde ao meu ID.");
             }
