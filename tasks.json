@@ -17,6 +17,12 @@
         "client_id": 3,
         "command": "nslookup example.com",
         "frequency": 15
+      },
+      {
+        "task_id": "task-103",
+        "client_id": 4,
+        "command": "nslookup example.com",
+        "frequency": 15
       }
     ]
   }

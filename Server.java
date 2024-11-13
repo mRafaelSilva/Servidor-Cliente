@@ -1,25 +1,20 @@
-import java.io.FileReader;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.text.ParseException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
-
-
-//Alterar  o HashMap para o Id do cliente
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class Server {
     private static final int PORT = 12345;
     private DatagramSocket socket;
-    private List <Integer> clients = new ArrayList<>(); 
-    private AtomicInteger clientIdCounter = new AtomicInteger(1); 
+    private List<Integer> clients = new ArrayList<>();
+    private AtomicInteger clientIdCounter = new AtomicInteger(1);
 
     public Server() throws IOException {
         socket = new DatagramSocket(PORT);
@@ -51,11 +46,11 @@ public class Server {
             InetAddress clientAddress = packet.getAddress();
             int clientPort = packet.getPort();
 
-            if (1==type) {
+            if (type == 1) {
                 int newClientId = clientIdCounter.getAndIncrement();
                 clients.add(newClientId);
 
-                System.out.println("Registei o id " + clients.get(newClientId-1));
+                System.out.println("Registei o id " + clients.get(newClientId - 1));
 
                 System.out.println("Cliente registado. Foi-lhe atribuído o ID: " + newClientId);
 
@@ -66,15 +61,13 @@ public class Server {
                 socket.send(ackPacket);
             }
 
-            if (2==type) {
-        
-                if (parts[2] == null || parts[2].isEmpty() ) return;
+            if (type == 2) {
+                if (parts[2] == null || parts[2].isEmpty()) return;
 
                 int cliente = Integer.parseInt(parts[2]);
                 if (!clients.contains(cliente)) {
                     return;
                 } else {
-                    
                     System.out.println("O cliente com o id " + cliente + " está a pedir uma tarefa");
                     
                     String taskCommand = readTaskFromJSON(cliente);
@@ -85,7 +78,6 @@ public class Server {
                     );
                     socket.send(taskPacket);
 
-                    // Aguardar o ACK (ID 3)
                     byte[] ackBuffer = new byte[1024];
                     DatagramPacket ackPacket = new DatagramPacket(ackBuffer, ackBuffer.length);
                     socket.receive(ackPacket);
@@ -97,7 +89,14 @@ public class Server {
                         System.out.println("ACK recebido do cliente " + cliente + ". Atendimento concluído.");
                     }
                 }
-          }  
+            } 
+            
+            if (type == 5) {
+                int clientId = Integer.parseInt(parts[2]);
+                String result = parts[3];
+
+                System.out.println("Resultado recebido do cliente " + clientId + ":" + result);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -106,26 +105,26 @@ public class Server {
 
     private String readTaskFromJSON(int clientId) {
         try {
-            JSONParser parser = new JSONParser();
-            JSONObject jsonObject = (JSONObject) parser.parse(new FileReader("tasks.json"));
-            JSONArray tasks = (JSONArray) jsonObject.get("tasks");
+            String conteudo = new String(Files.readAllBytes(Paths.get("tasks.json")));
+            JSONObject jsonObject = new JSONObject(conteudo);
+            JSONArray tasks = jsonObject.getJSONArray("tasks");
     
-            for (Object obj : tasks) {
-                JSONObject task = (JSONObject) obj;
-                long taskClientId = (long) task.get("client_id");
+            for (int i = 0; i < tasks.length(); i++) {
+                JSONObject task = tasks.getJSONObject(i);
+                int taskClientId = task.getInt("client_id");
                 if (taskClientId == clientId) {
-                    String taskId = (String) task.get("task_id");
-                    String command = (String) task.get("command");
-                    long frequency = (long) task.get("frequency");
+                    String taskId = task.getString("task_id");
+                    String command = task.getString("command");
+                    int frequency = task.getInt("frequency");
     
                     return "task_id=" + taskId + ",command=" + command + ",frequency=" + frequency;
-                }
+                }   
             }
             
-        } catch (IOException | ParseException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
-        return "Nenhuma tarefa encontrada para o cliente " + clientId;
+        return null;
     }
     
 
@@ -135,7 +134,6 @@ public class Server {
     }
 
     private String createDatagramAckReg(int type, int sequenceNumber, int clientId) {
-       //int size = info.length();
         return type + "|" + sequenceNumber + "|" + clientId;
     }
 
