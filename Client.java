@@ -7,7 +7,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-//Cliente 1 e 3 não recebem tarefas, de dois em dois recebem a tarefa que devia ser só para o cliente com id 2
+
+// Implementar a lógica de, se não receber nada no Registo, no Pedido, ou no Resultado, enviar novamente
+// Temos de criar também uma lista que guarda os Resultados enviados e o Ack que pretende receber como resposta
+
 
 public class Client {
     private static final int SERVER_PORT = 12345;
@@ -15,25 +18,34 @@ public class Client {
     private DatagramSocket socket;
     private InetAddress serverAddress;
     private AtomicInteger sequenceNumber = new AtomicInteger(1);
+    private DatagramUtils utils;
+    private AckHandle ackHandle;
 
     public Client() throws IOException {
         this.socket = new DatagramSocket();
         this.serverAddress = InetAddress.getByName("localhost");
+        this.utils = new DatagramUtils();
+        ackHandle = new AckHandle(socket, utils);
     }
 
     public void register() {
         try {
             int newSequenceNumber = sequenceNumber.getAndIncrement();
-            String registrationMessage = createDatagramReg(1, newSequenceNumber);
+
+            System.out.println("SEQUENCE NUMBER INICIAL" + newSequenceNumber);
+
+            String registrationMessage = utils.criaDatagramaRegisto(1, newSequenceNumber); 
+
             DatagramPacket registrationPacket = new DatagramPacket(
                     registrationMessage.getBytes(), registrationMessage.length(), serverAddress, SERVER_PORT
             );
             socket.send(registrationPacket);
-
+            
             byte[] buffer = new byte[1024];
             DatagramPacket responsePacket = new DatagramPacket(buffer, buffer.length);
+            synchronized (socket) {
             socket.receive(responsePacket);
-
+            }
             String responseMessage = new String(responsePacket.getData(), 0, responsePacket.getLength());
             String[] parts = responseMessage.split("\\|");
 
@@ -41,9 +53,12 @@ public class Client {
             int sequenceNumber = Integer.parseInt(parts[1]);
             int receivedClientId = Integer.parseInt(parts[2]);
 
-            if (3 == type) {
+            if (3 == type && sequenceNumber == newSequenceNumber) {
                 clientId = receivedClientId;
                 System.out.println("Registo confirmado. Foi-me atribuído o id: " + clientId);
+
+                ackHandle.sendAck(newSequenceNumber, clientId, serverAddress, SERVER_PORT, socket);
+
             } else {
                 System.out.println("Falha ao registar no servidor.");
             }
@@ -54,17 +69,20 @@ public class Client {
 
     public void requestTask() {
         try {
-            int newSequenceNumber = sequenceNumber.getAndIncrement();
-            String requestMessage = createDatagramReq(2, newSequenceNumber, clientId);
+            int newSequenceNumber = sequenceNumber.getAndIncrement(); // Sequência 2
+
+            //Aqui ele pede uma tarefa
+            String requestMessage = utils.criaDatagramaPedirTarefaString(2, newSequenceNumber, clientId);
             DatagramPacket taskPacket = new DatagramPacket(
                     requestMessage.getBytes(), requestMessage.length(), serverAddress, SERVER_PORT
             );
             socket.send(taskPacket);
 
+            // Aqui ele recebe a tarefa
             byte[] buffer = new byte[1024];
             DatagramPacket responsePacket = new DatagramPacket(buffer, buffer.length);
             socket.receive(responsePacket);
-
+            
             String responseMessage = new String(responsePacket.getData(), 0, responsePacket.getLength());
             String[] parts = responseMessage.split("\\|");
 
@@ -88,19 +106,14 @@ public class Client {
                     }
                 }
 
-                if (taskId != null && comando != null && frequencia > 0) {
+                if (taskId != null && comando != null && frequencia > 0) {  // Ele diz que recebeu a tarefa com sequencia 2
                     System.out.println("Recebi a tarefa: " + codigo + " com frequência de " + frequencia + " segundos.");
 
-                    // Envia o ACK ao servidor
-                    int ackSequenceNumber = sequenceNumber.getAndIncrement();
-                    String ackMessage = createAckDatagram(3, ackSequenceNumber, clientId);
-                    DatagramPacket ackPacket = new DatagramPacket(
-                            ackMessage.getBytes(), ackMessage.length(), serverAddress, SERVER_PORT
-                    );
-                    socket.send(ackPacket);
+                    ackHandle.sendAck(newSequenceNumber, clientId, serverAddress, SERVER_PORT, socket);  // sequência 2
+                    
                     System.out.println("ACK enviado ao servidor.");
 
-                    // Executa a tarefa recebida
+                    // Executa a tarefa recebida    
                     executeTask(codigo, frequencia);
                 } else {
                     System.out.println("Erro ao interpretar os campos da tarefa.");
@@ -114,16 +127,15 @@ public class Client {
         }
     }
 
-    private void executeTask(String command, int frequency) {
+    private void executeTask(String comando, int frequency) {
         ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
 
         executor.scheduleAtFixedRate(() -> {
             try {
-                // Simulação da execução do comando
-                String result = "Executando: " + command + " - Resultado: OK";
+                String result = "Estou a executar: " + comando;
 
                 // Envia o resultado ao servidor
-                sendTaskResult(result);
+                sendTaskResult(result); 
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -132,32 +144,25 @@ public class Client {
 
     private void sendTaskResult(String result) {
         try {
-            int newSequenceNumber = sequenceNumber.getAndIncrement();
-            String resultMessage = createDatagramTask(5, newSequenceNumber, clientId, result);
+            int newSequenceNumber = sequenceNumber.getAndIncrement();  // sequencia 3
+            String resultMessage = utils.criaDatagramaResultado(5, newSequenceNumber, clientId, result);
+
             DatagramPacket resultPacket = new DatagramPacket(
                     resultMessage.getBytes(), resultMessage.length(), serverAddress, SERVER_PORT
             );
             socket.send(resultPacket);
+
+            
+            // Implementar aqui a lógica também de guardar numa lista
+            // As listas vão ter de ser iniciadas: uma no Client e uma no Server?
+
+            ackHandle.criaAckPendente(newSequenceNumber, clientId, serverAddress, SERVER_PORT, resultPacket);
+
+            
             System.out.println("Resultado enviado ao servidor: " + result);
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private String createDatagramTask(int type, int seqNum, int clientId, String result) {
-        return type + "|" + seqNum + "|" + clientId + "|" + result;
-    }
-
-    private String createAckDatagram(int type, int seqNum, int clientId) {
-        return type + "|" + seqNum + "|" + clientId;
-    }
-
-    private String createDatagramReg(int type, int sequenceNumber) {
-        return type + "|" + sequenceNumber;
-    }
-
-    private String createDatagramReq(int type, int sequenceNumber, Integer clientId) {
-        return type + "|" + sequenceNumber + "|"+ clientId;
     }
 
     public static void main(String[] args) {

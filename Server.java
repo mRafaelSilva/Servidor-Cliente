@@ -11,13 +11,18 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class Server {
+
     private static final int PORT = 12345;
     private DatagramSocket socket;
     private List<Integer> clients = new ArrayList<>();
     private AtomicInteger clientIdCounter = new AtomicInteger(1);
+    private DatagramUtils utils;
+    private AckHandle ackHandle;
 
     public Server() throws IOException {
         socket = new DatagramSocket(PORT);
+        this.utils = new DatagramUtils();
+        ackHandle = new AckHandle(socket,utils); // esta parte de iniciar vai ser assim visto que quero ter um socket a responder para cada cliente e depois fechá-lo?
         System.out.println("Servidor iniciado na porta " + PORT);
     }
 
@@ -47,55 +52,56 @@ public class Server {
             int clientPort = packet.getPort();
 
             if (type == 1) {
+                // gera um novo id para o cliente
                 int newClientId = clientIdCounter.getAndIncrement();
                 clients.add(newClientId);
 
-                System.out.println("Registei o id " + clients.get(newClientId - 1));
+                ackHandle.sendEGuardaAck(sequenceNumber, newClientId, clientAddress, clientPort, socket);
 
-                System.out.println("Cliente registado. Foi-lhe atribuído o ID: " + newClientId);
+                return;            
+            }
 
-                String ackMessage = createDatagramAckReg(3, sequenceNumber, newClientId);
-                DatagramPacket ackPacket = new DatagramPacket(
-                        ackMessage.getBytes(), ackMessage.length(), clientAddress, clientPort
-                );
-                socket.send(ackPacket);
+            if (parts.length < 3 || parts[2] == null || parts[2].isEmpty()) {
+                System.out.println("Mensagem inválida recebida, ignorando.");
+                return;
+            }
+
+            int cliente = Integer.parseInt(parts[2]);
+
+            if (!clients.contains(cliente)) {
+                System.out.println("Cliente desconhecido: " + cliente);
+                return;
             }
 
             if (type == 2) {
-                if (parts[2] == null || parts[2].isEmpty()) return;
-
-                int cliente = Integer.parseInt(parts[2]);
-                if (!clients.contains(cliente)) {
-                    return;
-                } else {
-                    System.out.println("O cliente com o id " + cliente + " está a pedir uma tarefa");
+                System.out.println("O cliente com o id " + cliente + " está a pedir uma tarefa");
                     
-                    String taskCommand = readTaskFromJSON(cliente);
-                    String taskMessage = createTaskDatagram(4, sequenceNumber, cliente, taskCommand);
+                // envia um pacote com a tarefa
+                String taskCommand = readTaskFromJSON(cliente);
+                String taskMessage = utils.criaDatagramaTarefa(4, sequenceNumber, cliente, taskCommand);
                 
-                    DatagramPacket taskPacket = new DatagramPacket(
+                DatagramPacket taskPacket = new DatagramPacket(
                         taskMessage.getBytes(), taskMessage.length(), clientAddress, clientPort
-                    );
-                    socket.send(taskPacket);
-
-                    byte[] ackBuffer = new byte[1024];
-                    DatagramPacket ackPacket = new DatagramPacket(ackBuffer, ackBuffer.length);
-                    socket.receive(ackPacket);
-
-                    String ackResponse = new String(ackPacket.getData(), 0, ackPacket.getLength());
-                    String[] ackParts = ackResponse.split("\\|");
-
-                    if (Integer.parseInt(ackParts[0]) == 3) {
-                        System.out.println("ACK recebido do cliente " + cliente + ". Atendimento concluído.");
-                    }
-                }
+                );
+                socket.send(taskPacket);
+                    
+                // CRIO UM ACK
+                ackHandle.criaAckPendente(sequenceNumber, cliente, clientAddress, clientPort, taskPacket);
+                return;     
             } 
-            
+
+            if (type == 3) {
+                ackHandle.processAck(sequenceNumber, cliente);
+                return;
+            }
+        
             if (type == 5) {
-                int clientId = Integer.parseInt(parts[2]);
                 String result = parts[3];
 
-                System.out.println("Resultado recebido do cliente " + clientId + ":" + result);
+                System.out.println("Resultado recebido do cliente " + cliente + ":" + result);
+                ackHandle.sendAck(sequenceNumber, cliente, clientAddress, clientPort, socket);
+
+                return;
             }
 
         } catch (Exception e) {
@@ -103,6 +109,8 @@ public class Server {
         }
     }
 
+
+    // Tirar esta função daqui
     private String readTaskFromJSON(int clientId) {
         try {
             String conteudo = new String(Files.readAllBytes(Paths.get("tasks.json")));
@@ -128,21 +136,20 @@ public class Server {
     }
     
 
-    private String createTaskDatagram(int type, int seqNum, int clientId, String command) {
-        int size = command.length();
-        return type + "|" + seqNum + "|" + clientId + "|" + size + "|" + command;
-    }
-
-    private String createDatagramAckReg(int type, int sequenceNumber, int clientId) {
-        return type + "|" + sequenceNumber + "|" + clientId;
-    }
-
+    // FALTA DEIXAR SEMPRE A RODAR A VERIFICAÇÃO DOS ACKS E RETRANSMISSÃO
+    // FALTAR VER SE CRIO A LISTA AQUI OU NÃO JÁ QUE O CLIENTE TAMBÉM VAI
+    // TER UMA LISTA E PODE DAR CONFLITO COMO O ACKHANDLE SÓ TEM UMA
     public static void main(String[] args) {
+        Server server = null;
         try {
-            Server server = new Server();
+            server = new Server();
             server.listen();
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            if (server != null && server.ackHandle != null) {
+                server.ackHandle.stopRetransmissionTask();
+            }
         }
     }
 }

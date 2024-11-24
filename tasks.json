@@ -1,29 +1,29 @@
 {
-    "tasks": [
-      {
-        "task_id": "task-101",
-        "client_id": 1,
-        "command": "ping 192.168.1.1",
-        "frequency": 20
-      },
-      {
-        "task_id": "task-102",
-        "client_id": 2,
-        "command": "tracert google.com",
-        "frequency": 30
-      },
-      {
-        "task_id": "task-103",
-        "client_id": 3,
-        "command": "nslookup example.com",
-        "frequency": 15
-      },
-      {
-        "task_id": "task-103",
-        "client_id": 4,
-        "command": "nslookup example.com",
-        "frequency": 15
-      }
-    ]
-  }
+  "tasks": [
+    {
+      "task_id": "task-101",
+      "client_id": 1,
+      "command": "ping -c 1 192.168.1.1",
+      "frequency": 20
+    },
+    {
+      "task_id": "task-102",
+      "client_id": 2,
+      "command": "tracert google.com",
+      "frequency": 30
+    },
+    {
+      "task_id": "task-103",
+      "client_id": 3,
+      "command": "nslookup example.com",
+      "frequency": 15
+    },
+    {
+      "task_id": "task-103",
+      "client_id": 4,
+      "command": "nslookup example.com",
+      "frequency": 15
+    }
+  ]
+}
   
