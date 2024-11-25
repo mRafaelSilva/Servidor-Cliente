@@ -33,7 +33,7 @@ public class AckHandle {
         int porta;
         DatagramPacket packet; // Armazena o pacote enviado
     
-        public PendingAck(int nSequencia, int clientI, InetAddress endereco, int porta, DatagramPacket packet) {
+        public PendingAck(int nSequencia, int clientId, InetAddress endereco, int porta, DatagramPacket packet) {
             this.nSequencia = nSequencia;
             this.clientId = clientId;
             this.endereco = endereco;
@@ -41,22 +41,6 @@ public class AckHandle {
             this.packet = packet;
         }
     }
-
-
-    // NO CLIENT ADRESS E NO CLIENT PORT CHAMO OU A DO SERVIDOR OU A DO CLIENTE DEPENDENDO DO CONTEXTO
-
-
-    // ESTA FUNÇÃO É SÓ PARA O SERVIDOR
-    // Adaptar o código:
-    /*
-     Criar uma função que cria um pendingAck
-     Adicionar o pending ack a uma Lista (usar o synchronized)
-    
-     Se recebermos um ACK, temos de o partir em pedaços e chamar a processAck para aceder à lista
-     Utilizar a processAck para remover os Acks que 
-     */
-
-
 
     public void sendAck(int nSequencia, int clientId, InetAddress endereco, int porta, DatagramSocket socket) {
         try {
@@ -66,7 +50,7 @@ public class AckHandle {
             DatagramPacket pacote = new DatagramPacket(mensagem.getBytes(), mensagem.length(), endereco, porta);
 
             socket.send(pacote);
-            System.out.println("Mensagem enviada para " + endereco + ":" + porta + " com seq=" + nSequencia);
+            System.out.println("Mensagem enviada para " + endereco + ":" + porta + " com seq=" + nSequencia + " e id " + clientId);
             
         } catch (IOException e) {
             e.printStackTrace();
@@ -77,7 +61,7 @@ public class AckHandle {
         public void sendEGuardaAck(int nSequencia, int clientId, InetAddress endereco, int porta, DatagramSocket socket) {
             try {
                 // Criação do datagrama
-                String message = utils.criaDatagramaAck(3, nSequencia, clientId);
+                String message = utils.criaDatagramaAck(3,nSequencia, clientId);
     
                 DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), endereco, porta);
         
@@ -99,6 +83,9 @@ public class AckHandle {
             synchronized(pendingAcks) {
                 pendingAcks.add(new PendingAck(nSequencia, clientId, endereco, porta, tarefa));        
             }
+
+            System.out.println("Estou à espera do Ack " + nSequencia + " do id " + clientId);
+
         }
         
 

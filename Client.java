@@ -40,6 +40,9 @@ public class Client {
                     registrationMessage.getBytes(), registrationMessage.length(), serverAddress, SERVER_PORT
             );
             socket.send(registrationPacket);
+            System.out.println("Pedido de Registo enviado: Tipo=1, SeqNum=" + newSequenceNumber + ", ClientId=" + clientId + " Porta " + SERVER_PORT + " Endereço " + serverAddress);
+
+
             
             byte[] buffer = new byte[1024];
             DatagramPacket responsePacket = new DatagramPacket(buffer, buffer.length);
@@ -156,7 +159,8 @@ public class Client {
             // Implementar aqui a lógica também de guardar numa lista
             // As listas vão ter de ser iniciadas: uma no Client e uma no Server?
 
-            ackHandle.criaAckPendente(newSequenceNumber, clientId, serverAddress, SERVER_PORT, resultPacket);
+            // Substituir este por uma apropriada para o server
+            //ackHandle.criaAckPendente(newSequenceNumber, clientId, serverAddress, SERVER_PORT, resultPacket);
 
             
             System.out.println("Resultado enviado ao servidor: " + result);

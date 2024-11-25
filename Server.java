@@ -74,23 +74,34 @@ public class Server {
             }
 
             if (type == 2) {
+                System.out.println("OLÁ?1.");
                 System.out.println("O cliente com o id " + cliente + " está a pedir uma tarefa");
                     
+                System.out.println("OLÁ?2.");
                 // envia um pacote com a tarefa
                 String taskCommand = readTaskFromJSON(cliente);
                 String taskMessage = utils.criaDatagramaTarefa(4, sequenceNumber, cliente, taskCommand);
-                
+                System.out.println("OLÁ?3.");
+
                 DatagramPacket taskPacket = new DatagramPacket(
                         taskMessage.getBytes(), taskMessage.length(), clientAddress, clientPort
                 );
+
+                System.out.println("Vou enviar.");
+
                 socket.send(taskPacket);
+                System.out.println("Pacote de tarefa enviado.");
+
                     
                 // CRIO UM ACK
+                System.out.println("Chamando criaAckPendente para seq=" + sequenceNumber + " e id=" + cliente);
+
                 ackHandle.criaAckPendente(sequenceNumber, cliente, clientAddress, clientPort, taskPacket);
                 return;     
             } 
 
             if (type == 3) {
+                System.out.println("Recebi um ack");
                 ackHandle.processAck(sequenceNumber, cliente);
                 return;
             }
