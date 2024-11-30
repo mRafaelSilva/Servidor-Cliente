@@ -78,6 +78,8 @@ public class AckHandle {
             }
         }
 
+        //FAZER PROCESSACK QUE NÃO USA CLIENTID
+
         public void criaAckPendente(int nSequencia, int clientId, InetAddress endereco, int porta, DatagramPacket tarefa) {
         
             synchronized(pendingAcks) {
@@ -88,6 +90,15 @@ public class AckHandle {
 
         }
         
+        public void processAckReg(int nSequencia) {
+            synchronized (pendingAcks) {
+                pendingAcks.removeIf(pendingAck -> 
+                    pendingAck.nSequencia == nSequencia
+                );
+            }
+            System.out.println("ACK processado do reg");
+        }
+
 
     public void processAck(int nSequencia, int clientId) {
         synchronized (pendingAcks) {

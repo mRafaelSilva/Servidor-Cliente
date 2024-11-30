@@ -10,9 +10,10 @@
     import java.util.concurrent.atomic.AtomicInteger;
 
 
-    // Implementar a lógica de, se não receber nada no Registo, no Pedido, ou no Resultado, enviar novamente
-    // Temos de criar também uma lista que guarda os Resultados enviados e o Ack que pretende receber como resposta
+    // Falta implementar a retransmissão no cliente. Caso alguma mensagem enviado pelo cliente não chegue ao servidor. Ou seja, não recebemos o ACK. O cliente deve voltar a enviar a sua mensagem e, só depois de recebido o ACK, prosseguir para a próxima etapa.
+    // Falta implementar o medir a CPU e o medir a RAM
 
+    //ADICIONAL: spam de clientes não registados.. como
 
     public class Client {
         private static final int SERVER_PORT = 12345;
@@ -34,17 +35,15 @@
             try {
                 int newSequenceNumber = sequenceNumber.getAndIncrement();
 
-                System.out.println("SEQUENCE NUMBER INICIAL" + newSequenceNumber);
-
                 String registrationMessage = utils.criaDatagramaRegisto(1, newSequenceNumber); 
 
                 DatagramPacket registrationPacket = new DatagramPacket(
                         registrationMessage.getBytes(), registrationMessage.length(), serverAddress, SERVER_PORT
                 );
                 socket.send(registrationPacket);
-                System.out.println("Pedido de Registo enviado: Tipo=1, SeqNum=" + newSequenceNumber + ", ClientId=" + clientId + " Porta " + SERVER_PORT + " Endereço " + serverAddress);
+                System.out.println("Pedido de Registo enviado.");
 
-
+                ackHandle.criaAckPendente(newSequenceNumber, 200, serverAddress, SERVER_PORT, registrationPacket);
                 
                 byte[] buffer = new byte[1024];
                 DatagramPacket responsePacket = new DatagramPacket(buffer, buffer.length);
@@ -60,6 +59,7 @@
 
                 if (3 == type && sequenceNumber == newSequenceNumber) {
                     clientId = receivedClientId;
+                    ackHandle.processAckReg(newSequenceNumber);
                     System.out.println("Registo confirmado. Foi-me atribuído o id: " + clientId);
 
                     ackHandle.sendAck(newSequenceNumber, clientId, serverAddress, SERVER_PORT, socket);
@@ -83,6 +83,9 @@
                 );
                 socket.send(taskPacket);
 
+                ackHandle.criaAckPendente(newSequenceNumber, clientId, serverAddress, SERVER_PORT, taskPacket);
+
+
                 // Aqui ele recebe a tarefa
                 byte[] buffer = new byte[1024];
                 DatagramPacket responsePacket = new DatagramPacket(buffer, buffer.length);
@@ -92,10 +95,14 @@
                 String[] parts = responseMessage.split("\\|");
 
                 int tipo = Integer.parseInt(parts[0]);
+                int sequencia = Integer.parseInt(parts[1]);
                 int taskClientId = Integer.parseInt(parts[2]);
                 String comando = parts[4];
+
                 
                 if (4 == tipo && taskClientId == clientId) {
+
+                    ackHandle.processAck(sequencia, clientId);
 
                     String[] comandoPartes = comando.split(",");
                     String taskId = null, codigo = null;
@@ -122,7 +129,8 @@
                         System.out.println("ACK enviado ao servidor.");
 
                         // Executa a tarefa recebida    
-                        executeTask(codigo, frequencia, tipoTarefa);
+                        executeTask(codigo, frequencia, tipoTarefa);       
+
                     } else {
                         System.out.println("Erro ao interpretar os campos da tarefa.");
                     }
@@ -165,11 +173,13 @@
                         //    result = parseMemoryOutput(executeCommand(comando));
                             break;
                         default:
-                            result = "Tipo de tarefa desconhecido.";
+                            result = "Tipo de tarefa desconhec  ido.";
                     }
         
                     // Envia o resultado ao servidor
                     if (tipoTarefa == 1 || tipoTarefa == 3 || tipoTarefa == 4) sendTaskResult(result);
+
+
         
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -191,6 +201,7 @@
             return "Latência não encontrada.";
         }
 
+/* 
         private String parseIperfOutput(String output) {
             String[] lines = output.split("\n");
             for (String line : lines) {
@@ -214,7 +225,7 @@
             return "Largura de banda não encontrada.";
         }
         
-/* 
+*/
         private String parseIperfOutput(String output) {
 
             System.out.println("OUTPUT: " + output);
@@ -241,7 +252,7 @@
             }
             return "Largura de banda não encontrada.";
         }
-*/       
+      
 
     private String executeCommand(String command) {
         StringBuilder output = new StringBuilder();
@@ -290,16 +301,26 @@
                         resultMessage.getBytes(), resultMessage.length(), serverAddress, SERVER_PORT
                 );
                 socket.send(resultPacket);
-
                 
-                // Implementar aqui a lógica também de guardar numa lista
-                // As listas vão ter de ser iniciadas: uma no Client e uma no Server?
-
-                // Substituir este por uma apropriada para o server
-                //ackHandle.criaAckPendente(newSequenceNumber, clientId, serverAddress, SERVER_PORT, resultPacket);
+                ackHandle.criaAckPendente(newSequenceNumber, clientId, serverAddress, SERVER_PORT, resultPacket);
 
                 
                 System.out.println("Resultado enviado ao servidor: " + result);
+
+                           
+                // Aqui ele recebe a tarefa
+                byte[] buffer2 = new byte[1024];
+                DatagramPacket responsePacket2 = new DatagramPacket(buffer2, buffer2.length);
+                socket.receive(responsePacket2);
+                
+                        String responseMessage2 = new String(responsePacket2.getData(), 0, responsePacket2.getLength());
+                        String[] parts2 = responseMessage2.split("\\|");
+
+                        int tipo2 = Integer.parseInt(parts2[0]);    
+                        int sequencia2 = Integer.parseInt(parts2[1]);
+                        int taskClientId2 = Integer.parseInt(parts2[2]);
+
+                    if (tipo2 == 3) ackHandle.processAck(sequencia2, taskClientId2); 
             } catch (IOException e) {
                 e.printStackTrace();
             }
