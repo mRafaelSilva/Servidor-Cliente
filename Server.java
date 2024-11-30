@@ -10,6 +10,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+// 1 É TIPO REGISTO
+// 2 É TIPO PEDIDO
+// 3 É TIPO ACK
+// 4 É TIPO ENVIO DE TAREFA
+// 5 É TIPO RESULTADO
+
+
 public class Server {
 
     private static final int PORT = 12345;
@@ -18,6 +25,7 @@ public class Server {
     private AtomicInteger clientIdCounter = new AtomicInteger(1);
     private DatagramUtils utils;
     private AckHandle ackHandle;
+    private InetAddress ipServidorIperf = null;
 
     public Server() throws IOException {
         socket = new DatagramSocket(PORT);
@@ -28,7 +36,7 @@ public class Server {
 
     public void listen() {
         while (true) {
-            try {
+            try {   
                 byte[] buffer = new byte[1024];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
@@ -74,20 +82,15 @@ public class Server {
             }
 
             if (type == 2) {
-                System.out.println("OLÁ?1.");
                 System.out.println("O cliente com o id " + cliente + " está a pedir uma tarefa");
                     
-                System.out.println("OLÁ?2.");
                 // envia um pacote com a tarefa
-                String taskCommand = readTaskFromJSON(cliente);
+                String taskCommand = readTaskFromJSON(cliente, clientAddress);
                 String taskMessage = utils.criaDatagramaTarefa(4, sequenceNumber, cliente, taskCommand);
-                System.out.println("OLÁ?3.");
 
                 DatagramPacket taskPacket = new DatagramPacket(
                         taskMessage.getBytes(), taskMessage.length(), clientAddress, clientPort
                 );
-
-                System.out.println("Vou enviar.");
 
                 socket.send(taskPacket);
                 System.out.println("Pacote de tarefa enviado.");
@@ -122,7 +125,7 @@ public class Server {
 
 
     // Tirar esta função daqui
-    private String readTaskFromJSON(int clientId) {
+    private String readTaskFromJSON(int clientId, InetAddress clientAddress) {
         try {
             String conteudo = new String(Files.readAllBytes(Paths.get("tasks.json")));
             JSONObject jsonObject = new JSONObject(conteudo);
@@ -133,13 +136,29 @@ public class Server {
                 int taskClientId = task.getInt("client_id");
                 if (taskClientId == clientId) {
                     String taskId = task.getString("task_id");
+                    int tipo_tarefa = task.getInt("tipo_tarefa");
+
+                    if (tipo_tarefa == 2) {
+                        ipServidorIperf = clientAddress;
+                    }
+
                     String command = task.getString("command");
+
+                    if (tipo_tarefa == 3) {
+                        command = command.replace("<server_ip>", ipServidorIperf.getHostAddress());
+                        if (ipServidorIperf == null) {
+                            System.out.println("Erro: Nenhum servidor iperf configurado para o cliente " + clientId);
+                            return null;
+                        }
+                    }
+
+
                     int frequency = task.getInt("frequency");
     
-                    return "task_id=" + taskId + ",command=" + command + ",frequency=" + frequency;
+                    return "task_id=" + taskId +  ",tipo_tarefa=" + tipo_tarefa + ",command=" + command + ",frequency=" + frequency;
                 }   
             }
-            
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -147,9 +166,6 @@ public class Server {
     }
     
 
-    // FALTA DEIXAR SEMPRE A RODAR A VERIFICAÇÃO DOS ACKS E RETRANSMISSÃO
-    // FALTAR VER SE CRIO A LISTA AQUI OU NÃO JÁ QUE O CLIENTE TAMBÉM VAI
-    // TER UMA LISTA E PODE DAR CONFLITO COMO O ACKHANDLE SÓ TEM UMA
     public static void main(String[] args) {
         Server server = null;
         try {
