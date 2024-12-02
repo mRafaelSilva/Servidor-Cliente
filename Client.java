@@ -169,8 +169,8 @@
                         case 3: // iPerf
                             result = parseIperfOutput(executeCommand(comando));
                             break;
-                        case 4: // Memória RAM
-                        //    result = parseMemoryOutput(executeCommand(comando));
+                        case 4: 
+                            result = parseRAMOutput(executeCommand(comando));
                             break;
                         default:
                             result = "Tipo de tarefa desconhec  ido.";
@@ -253,6 +253,19 @@
             return "Largura de banda não encontrada.";
         }
       
+
+        private String parseRAMOutput(String output) {
+            String[] lines = output.split("\n");
+            for (String line : lines) {
+                if (line.startsWith("Mem:")) { // Encontra a linha que começa com "Mem:"
+                    String[] values = line.split("\\s+"); // Divide pelos espaços em branco
+                    if (values.length > 2) {
+                        return "RAM utilizada: " + values[2]; // O terceiro valor (índice 2) é o 'used'
+                    }
+                }
+            }
+            return "Informação de RAM não encontrada.";
+        }
 
     private String executeCommand(String command) {
         StringBuilder output = new StringBuilder();
