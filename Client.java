@@ -108,6 +108,7 @@
                     String taskId = null, codigo = null;
                     int frequencia = 0;
                     int tipoTarefa = 0;
+                    long limite = 0;
         
                     for (String part : comandoPartes) {
                         if (part.startsWith("task_id=")) {
@@ -118,7 +119,9 @@
                             codigo = part.split("=")[1];
                         } else if (part.startsWith("frequency=")) {
                             frequencia = Integer.parseInt(part.split("=")[1]);
-                        }  
+                        } else if (part.startsWith("limit=")) {
+                                limite = Long.parseLong(part.split("=")[1]);
+                        }
                     }
 
                     if (taskId != null && codigo != null && frequencia >= 0) {  
@@ -129,7 +132,7 @@
                         System.out.println("ACK enviado ao servidor.");
 
                         // Executa a tarefa recebida    
-                        executeTask(codigo, frequencia, tipoTarefa);       
+                        executeTask(codigo, frequencia, tipoTarefa, limite);       
 
                     } else {
                         System.out.println("Erro ao interpretar os campos da tarefa.");
@@ -143,7 +146,7 @@
             }
         }
 
-        private void executeTask(String comando, int frequency, int tipoTarefa) {
+        private void executeTask(String comando, int frequency, int tipoTarefa, long limite) {
             ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
         
             if (frequency == 0) {
@@ -161,6 +164,18 @@
                     switch (tipoTarefa) {
                         case 1: // Ping
                             result = parsePingOutput(executeCommand(comando));
+                            if ("Latência não encontrada".equals(result)) break;
+                            
+                            String latencyString = result.replace("Latência média: ", "").replace(" ms", "").trim();
+                            double latencia = Double.parseDouble(latencyString);
+
+                            if (latencia>limite) {
+                                System.out.println("Limite excedido! Latência: " + latencia + " ms, Limite: " + limite + " ms");
+                                executor.shutdown();
+                                System.exit(0);
+                                return; // Encerra o processo
+                            }
+
                             break;
                         case 2: // iPerf servidor
                             executeCommand(comando);
@@ -168,9 +183,33 @@
                             break;
                         case 3: // iPerf
                             result = parseIperfOutput(executeCommand(comando));
+                            
+                            if ("Largura de banda não encontrada.".equals(result)) break;
+
+                            String auxIperf = result.split(":")[1].trim();
+                            double banda = convertToGbits(auxIperf);
+
+                            if (banda>limite) {
+                                System.out.println("Alerta: Banda Larga excedeu o limite.");
+                                executor.shutdown();
+                                System.exit(0);
+                            }
+
                             break;
                         case 4: 
                             result = parseRAMOutput(executeCommand(comando));
+
+                            if ("Informação de RAM não encontrada.".equals(result)) break;
+
+                            int percentIndex = result.indexOf("%"); // Localiza o índice de "%"
+                            String aux = result.substring(result.lastIndexOf(" ")+1, percentIndex);
+
+                            double alerta = Double.parseDouble(aux); // dá erro porque o ram vem em um float
+                            if (alerta > limite) {
+                                System.out.println("Alerta: Uso de RAM excedeu o limite.");
+                                executor.shutdown();
+                                System.exit(0);
+                            }
                             break;
                         default:
                             result = "Tipo de tarefa desconhec  ido.";
@@ -201,31 +240,6 @@
             return "Latência não encontrada.";
         }
 
-/* 
-        private String parseIperfOutput(String output) {
-            String[] lines = output.split("\n");
-            for (String line : lines) {
-                if (line.contains("bits/sec")) {
-                    try {
-                        // Normalize os espaços para facilitar a busca
-                        String normalizedLine = line.trim().replaceAll("\\s+", " ");
-                        // Regex para capturar o número e a unidade (ex.: "139 Gbits/sec")
-                        String regex = "(\\d+(\\.\\d+)?\\s*[KMG]bits/sec)";
-                        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(regex).matcher(normalizedLine);
-                        if (matcher.find()) {
-                            // Retorna apenas o valor capturado
-                            return matcher.group(1);
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Erro ao analisar a linha: " + line);
-                        e.printStackTrace();
-                    }
-                }
-            }
-            return "Largura de banda não encontrada.";
-        }
-        
-*/
         private String parseIperfOutput(String output) {
 
             System.out.println("OUTPUT: " + output);
@@ -253,7 +267,44 @@
             return "Largura de banda não encontrada.";
         }
       
+        private String parseRAMOutput(String output) {
+            String[] lines = output.split("\n");
+            for (String line : lines) {
+                if (line.startsWith("Mem:")) { // Encontra a linha que começa com "Mem:"
+                    String[] values = line.split("\\s+"); // Divide pelos espaços em branco
+                    if (values.length > 2) {
+                        // Obtém valores de RAM total e usada
+                        String totalStr = values[1]; // Segundo valor (índice 1) é 'total'
+                        String usedStr = values[2];  // Terceiro valor (índice 2) é 'used'
+        
+                        // Remove possíveis sufixos como "Gi", "Mi", etc.
+                        double total = convertToGiBytes(totalStr);
+                        double used = convertToGiBytes(usedStr);
+        
+                        // Calcula a percentagem utilizada
+                        double percentUsed = (used / total) * 100;
+                        percentUsed = Math.round(percentUsed * 100.0) / 100.0; // Arredonda para 2 casas decimais
+        
+                        return "RAM utilizada: " + percentUsed + "%";
+                    }
+                }
+            }
+            return "Informação de RAM não encontrada.";
+        }
+        
+        // Função auxiliar para converter valores legíveis em bytes para números em GiB
+        private double convertToGiBytes(String value) {
+            double multiplier = 1.0; // Default é GiB
+            if (value.endsWith("Mi")) {
+                multiplier = 1.0 / 1024; // Converte Mi para Gi
+                value = value.replace("Mi", "");
+            } else if (value.endsWith("Gi")) {
+                value = value.replace("Gi", "");    
+            }
+            return Double.parseDouble(value) * multiplier;
+        }
 
+        /* 
         private String parseRAMOutput(String output) {
             String[] lines = output.split("\n");
             for (String line : lines) {
@@ -266,6 +317,20 @@
             }
             return "Informação de RAM não encontrada.";
         }
+*/
+private double convertToGbits(String value) {
+    double multiplier = 1.0; // Default é Gbits
+    if (value.endsWith("Mbits/sec")) {
+        multiplier = 1.0 / 1000; // Converte Mbits para Gbits
+        value = value.replace("Mbits/sec", "").trim();
+    } else if (value.endsWith("Kbits/sec")) {
+        multiplier = 1.0 / 1000000; // Converte Kbits para Gbits
+        value = value.replace("Kbits/sec", "").trim();
+    } else if (value.endsWith("Gbits/sec")) {
+        value = value.replace("Gbits/sec", "").trim();
+    }
+    return Double.parseDouble(value) * multiplier;
+}
 
     private String executeCommand(String command) {
         StringBuilder output = new StringBuilder();

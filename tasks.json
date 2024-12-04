@@ -2,39 +2,35 @@
   "tasks": [
     {
       "task_id": "task-101",
-      "client_id": 1,
+      "client_id": 3,
       "tipo_tarefa": 1,
       "command": "ping -c 1 192.168.1.1",
-      "frequency": 20
+      "frequency": 20,
+      "limit": 3
     },
     {
       "task_id": "task-102",  
-      "client_id": 2,
+      "client_id": 1,
       "tipo_tarefa": 2,
       "command": "iperf -s",
-      "frequency": 0
+      "frequency": 0,
+      "limit" : 0
     },
     {
       "task_id": "task-103",
-      "client_id": 3,
+      "client_id": 2,
       "tipo_tarefa": 3,
       "command": "iperf -c <server_ip> -t 3",
-      "frequency": 15
+      "frequency": 15,
+      "limit": 200
     },
     {
       "task_id": "task-103",
       "client_id": 4,
       "tipo_tarefa":4,
       "command": "free -h",
-      "frequency": 15
+      "frequency": 15,
+      "limit": 45
     }
   ]
 }
-  
-//criar task para medir o cpu
-
-// devolver os resultados dos .json?
-// escrever um tipo para uma task, ping tem um tipo, traceroute outro.. que vamos usar para saber o return a devolver
-// é para medir o cpu e a ram de todos os clientes certo?
-// controlo de erros
-// testes?

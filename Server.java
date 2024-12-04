@@ -86,6 +86,9 @@ public class Server {
                     
                 // envia um pacote com a tarefa
                 String taskCommand = readTaskFromJSON(cliente, clientAddress);
+                if (taskCommand == null) {
+                    return;
+                }
                 String taskMessage = utils.criaDatagramaTarefa(4, sequenceNumber, cliente, taskCommand);
 
                 DatagramPacket taskPacket = new DatagramPacket(
@@ -154,8 +157,9 @@ public class Server {
 
 
                     int frequency = task.getInt("frequency");
+                    long limit = task.getLong("limit");
     
-                    return "task_id=" + taskId +  ",tipo_tarefa=" + tipo_tarefa + ",command=" + command + ",frequency=" + frequency;
+                    return "task_id=" + taskId +  ",tipo_tarefa=" + tipo_tarefa + ",command=" + command + ",frequency=" + frequency + ",limit=" + limit;
                 }   
             }
 
