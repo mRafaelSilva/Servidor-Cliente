@@ -1,6 +1,7 @@
 # Diretórios e biblioteca
 SRC_DIR = .
 BIN_DIR = bin
+RESULTADOS_DIR = Resultados
 LIBRARY = myproject.jar:json-20240303.jar
 
 # Arquivos-fonte e classes compiladas
@@ -21,8 +22,12 @@ $(BIN_DIR)/%.class: $(SRC_DIR)/%.java
 	$(JAVAC) $(JFLAGS) $<
 
 # Alvo para executar o servidor
-server: all
+server: all cria_resultados_dir
 	$(JAVA) -cp "$(BIN_DIR):$(LIBRARY)" Server
+
+# Alvo para criar o diretório Resultados
+cria_resultados_dir:
+	@mkdir -p $(RESULTADOS_DIR)
 
 # Alvo para executar o cliente
 client: all
@@ -31,3 +36,4 @@ client: all
 # Alvo para limpar os arquivos compilados
 clean:
 	rm -rf $(BIN_DIR)
+	rm -rf $(RESULTADOS_DIR)

@@ -4,11 +4,15 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.File;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 // 1 É TIPO REGISTO
 // 2 É TIPO PEDIDO
@@ -64,6 +68,9 @@ public class Server {
                 int newClientId = clientIdCounter.getAndIncrement();
                 clients.add(newClientId);
 
+                String fileName = "Resultados/Cliente" + newClientId + ".txt";
+                Files.write(Paths.get(fileName), ("Cliente " + newClientId + " registrado.\n").getBytes());
+
                 ackHandle.sendEGuardaAck(sequenceNumber, newClientId, clientAddress, clientPort, socket);
 
                 return;            
@@ -117,6 +124,14 @@ public class Server {
 
                 System.out.println("Resultado recebido do cliente " + cliente + ":" + result);
                 ackHandle.sendAck(sequenceNumber, cliente, clientAddress, clientPort, socket);
+
+                LocalDateTime now = LocalDateTime.now();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                String timestamp = now.format(formatter);
+
+                String fileName = "Resultados/Cliente" + cliente + ".txt";
+                String resultEntry = "[" + timestamp + "] " + result + "\n";
+                Files.write(Paths.get(fileName), resultEntry.getBytes(), StandardOpenOption.APPEND);
 
                 return;
             }

@@ -164,7 +164,7 @@
                     switch (tipoTarefa) {
                         case 1: // Ping
                             result = parsePingOutput(executeCommand(comando));
-                            if ("Latência não encontrada".equals(result)) break;
+                            if ("Latência não encontrada.".equals(result)) break;
                             
                             String latencyString = result.replace("Latência média: ", "").replace(" ms", "").trim();
                             double latencia = Double.parseDouble(latencyString);
