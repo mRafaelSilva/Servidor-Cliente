@@ -1,3 +1,4 @@
+import java.awt.SystemTray;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -89,28 +90,46 @@ public class Server {
             }
 
             if (type == 2) {
-                System.out.println("O cliente com o id " + cliente + " está a pedir uma tarefa");
+                System.out.println("O cliente com o id " + cliente + " está a pedir tarefas");
                     
                 // envia um pacote com a tarefa
-                String taskCommand = readTaskFromJSON(cliente, clientAddress);
-                if (taskCommand == null) {
+                List<String> taskCommands = readTasksFromJSON(cliente, clientAddress);
+                if (taskCommands == null || taskCommands.isEmpty()) {
+                    System.out.println("Nenhuma tarefa disponível para o cliente " + cliente);
                     return;
                 }
-                String taskMessage = utils.criaDatagramaTarefa(4, sequenceNumber, cliente, taskCommand);
+                int tamanho = taskCommands.size();
+                String str = String.valueOf(tamanho);
 
-                DatagramPacket taskPacket = new DatagramPacket(
-                        taskMessage.getBytes(), taskMessage.length(), clientAddress, clientPort
+                String mensagemNTarefas = utils.criaDatagramaTarefa(4, sequenceNumber, cliente, str);
+
+                System.out.println("MENSAGEM A ENVIAR COM O NUMERO DE TAREFAS: " + mensagemNTarefas);
+                DatagramPacket nTarefasPacket = new DatagramPacket(
+                    mensagemNTarefas.getBytes(), mensagemNTarefas.length(), clientAddress, clientPort
                 );
+                socket.send(nTarefasPacket);
+                
+                // Iterar pela lista de comandos das tarefas
+                for (int i = 0; i < taskCommands.size(); i++) {
+                    String comandoTarefa = taskCommands.get(i); // Acessa o comando no índice atual
+                    int taskSequenceNumber = sequenceNumber + i + 1; // Número de sequência único para cada tarefa
+                    System.out.println("SEQUENCIA NUMBER DE ACK DE TAREFA: " + taskSequenceNumber);
 
-                socket.send(taskPacket);
-                System.out.println("Pacote de tarefa enviado.");
+                    // Cria a mensagem de tarefa específica
+                    String mensagemTarefa = utils.criaDatagramaTarefa(4, taskSequenceNumber, cliente, comandoTarefa);
 
-                    
-                // CRIO UM ACK
-                System.out.println("Chamando criaAckPendente para seq=" + sequenceNumber + " e id=" + cliente);
+                    // Cria e envia o pacote
+                    DatagramPacket taskPacket = new DatagramPacket(
+                        mensagemTarefa.getBytes(), mensagemTarefa.length(), clientAddress, clientPort
+                    );
+                    socket.send(taskPacket);
+                    System.out.println("Pacote enviado para a tarefa: " + comandoTarefa);
 
-                ackHandle.criaAckPendente(sequenceNumber, cliente, clientAddress, clientPort, taskPacket);
-                return;     
+                    // Criar um ACK pendente para a tarefa enviada
+                    ackHandle.criaAckPendente(taskSequenceNumber, cliente, clientAddress, clientPort, taskPacket);
+                }
+
+                return;
             } 
 
             if (type == 3) {
@@ -143,7 +162,8 @@ public class Server {
 
 
     // Tirar esta função daqui
-    private String readTaskFromJSON(int clientId, InetAddress clientAddress) {
+    private List<String> readTasksFromJSON(int clientId, InetAddress clientAddress) {
+        List<String> taskList = new ArrayList<>();
         try {
             String conteudo = new String(Files.readAllBytes(Paths.get("tasks.json")));
             JSONObject jsonObject = new JSONObject(conteudo);
@@ -174,14 +194,17 @@ public class Server {
                     int frequency = task.getInt("frequency");
                     long limit = task.getLong("limit");
     
-                    return "task_id=" + taskId +  ",tipo_tarefa=" + tipo_tarefa + ",command=" + command + ",frequency=" + frequency + ",limit=" + limit;
+                    String formattedTask = "task_id=" + taskId +",client_id=" + taskClientId + ",tipo_tarefa=" + tipo_tarefa +
+                    ",command=" + command + ",frequency=" + frequency + ",limit=" + limit;
+                    taskList.add(formattedTask);
                 }   
             }
 
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return null;
+        System.out.println("Tarefas para o cliente " + clientId + ": " + taskList);
+        return taskList;
     }
     
 

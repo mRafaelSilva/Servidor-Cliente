@@ -4,9 +4,9 @@
     import java.net.DatagramPacket;
     import java.net.DatagramSocket;
     import java.net.InetAddress;
-    import java.util.concurrent.Executors;
-    import java.util.concurrent.ScheduledExecutorService;
-    import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
     import java.util.concurrent.atomic.AtomicInteger;
 
 
@@ -78,80 +78,106 @@
 
                 //Aqui ele pede uma tarefa
                 String requestMessage = utils.criaDatagramaPedirTarefaString(2, newSequenceNumber, clientId);
-                DatagramPacket taskPacket = new DatagramPacket(
+                DatagramPacket requestPacket = new DatagramPacket(
                         requestMessage.getBytes(), requestMessage.length(), serverAddress, SERVER_PORT
                 );
-                socket.send(taskPacket);
+                socket.send(requestPacket);
 
-                ackHandle.criaAckPendente(newSequenceNumber, clientId, serverAddress, SERVER_PORT, taskPacket);
+                ackHandle.criaAckPendente(newSequenceNumber, clientId, serverAddress, SERVER_PORT, requestPacket);
 
 
-                // Aqui ele recebe a tarefa
+                // Aqui ele recebe as tarefas
                 byte[] buffer = new byte[1024];
                 DatagramPacket responsePacket = new DatagramPacket(buffer, buffer.length);
                 socket.receive(responsePacket);
                 
                 String responseMessage = new String(responsePacket.getData(), 0, responsePacket.getLength());
+                
                 String[] parts = responseMessage.split("\\|");
+                if (parts.length < 2) {
+                    System.out.println("Mensagem inválida recebida do servidor.");
+                    return;
+                }
 
                 int tipo = Integer.parseInt(parts[0]);
-                int sequencia = Integer.parseInt(parts[1]);
-                int taskClientId = Integer.parseInt(parts[2]);
-                String comando = parts[4];
 
-                
-                if (4 == tipo && taskClientId == clientId) {
 
-                    ackHandle.processAck(sequencia, clientId);
+                if (tipo == 4) {
+                int receivedSequenceNumber = Integer.parseInt(parts[1]);
 
-                    String[] comandoPartes = comando.split(",");
-                    String taskId = null, codigo = null;
-                    int frequencia = 0;
-                    int tipoTarefa = 0;
-                    long limite = 0;
-        
-                    for (String part : comandoPartes) {
-                        if (part.startsWith("task_id=")) {
-                            taskId = part.split("=")[1];
-                        } else if (part.startsWith("tipo_tarefa=")) {
-                            tipoTarefa = Integer.parseInt(part.split("=")[1]);
-                        } else if (part.startsWith("command=")) {
-                            codigo = part.split("=")[1];
-                        } else if (part.startsWith("frequency=")) {
-                            frequencia = Integer.parseInt(part.split("=")[1]);
-                        } else if (part.startsWith("limit=")) {
-                                limite = Long.parseLong(part.split("=")[1]);
-                        }
-                    }
+                ackHandle.processAck(receivedSequenceNumber, clientId);
 
-                    if (taskId != null && codigo != null && frequencia >= 0) {  
-                        System.out.println("Recebi a tarefa: " + codigo + " com frequência de " + frequencia + " segundos. e tipo: " + tipoTarefa);
+                int numTarefas = Integer.parseInt(parts[4]);
 
-                        ackHandle.sendAck(newSequenceNumber, clientId, serverAddress, SERVER_PORT, socket); 
-                        
-                        System.out.println("ACK enviado ao servidor.");
+                System.out.println("Número de tarefas a receber: " + numTarefas);
 
-                        // Executa a tarefa recebida    
-                        executeTask(codigo, frequencia, tipoTarefa, limite);       
+                for (int i = 0; i < numTarefas; i++) { 
+                    byte[] taskBuffer = new byte[1024];
+                    DatagramPacket taskPacket = new DatagramPacket(taskBuffer, taskBuffer.length);
+                    socket.receive(taskPacket);
 
+                    String taskMessage = new String(taskPacket.getData(), 0, taskPacket.getLength());
+                    System.out.println("AQUI: " + taskMessage);
+                    Task task = parseTask(taskMessage);
+
+                    if (task != null && task.getClientId() == clientId) {
+                        System.out.println("Tarefa recebida: " + task.getTaskId());
+                        ackHandle.sendAck(sequenceNumber.getAndIncrement(), clientId, serverAddress, SERVER_PORT, socket);
+                        executeTask(task);
                     } else {
-                        System.out.println("Erro ao interpretar os campos da tarefa.");
+                        System.out.println("Tarefa inválida ou não atribuída a este cliente.");
                     }
-                } else {
-                    System.out.println("Tarefa recebida não corresponde ao meu ID.");
                 }
-            
+                }
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
-        private void executeTask(String comando, int frequency, int tipoTarefa, long limite) {
-            ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+
+        private Task parseTask(String taskString) {
+
+            if (taskString.contains("|")) {
+                String[] parts = taskString.split("\\|");
+                taskString = parts[parts.length - 1]; // Usa a última parte da string
+            }
+
+            String[] parts = taskString.split(",");
+            String taskId = null, command = null;
+            int frequency = 0, tipoTarefa = 0;
+            long limite = 0;
+            Integer idCliente = null;
         
-            if (frequency == 0) {
+            for (String part : parts) {
+                if (part.startsWith("task_id=")) {
+                    taskId = part.split("=")[1];
+                } else if (part.startsWith("client_id=")) {
+                    idCliente = Integer.parseInt(part.split("=")[1]);
+                } else if (part.startsWith("tipo_tarefa=")) {
+                    tipoTarefa = Integer.parseInt(part.split("=")[1]);
+                } else if (part.startsWith("command=")) {
+                    command = part.split("=")[1];
+                } else if (part.startsWith("frequency=")) {
+                    frequency = Integer.parseInt(part.split("=")[1]);
+                } else if (part.startsWith("limit=")) {
+                    limite = Long.parseLong(part.split("=")[1]);
+                }
+            }
+        
+            if (taskId != null && command != null) {
+                return new Task(taskId, idCliente, tipoTarefa, command, frequency, limite);
+            }
+            return null;
+        }
+        
+
+        private void executeTask(Task task) {
+            ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+            
+            if (task.getFrequency() == 0) {
                 try {
-                    executeCommand(comando);
+                    executeCommand(task.getCommand());
                     System.out.println("Servidor iPerf iniciado.");
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -161,16 +187,16 @@
             executor.scheduleAtFixedRate(() -> {
                 try {
                     String result = null;
-                    switch (tipoTarefa) {
+                    switch (task.getTipoTarefa()) {
                         case 1: // Ping
-                            result = parsePingOutput(executeCommand(comando));
+                            result = parsePingOutput(executeCommand(task.getCommand()));
                             if ("Latência não encontrada.".equals(result)) break;
                             
                             String latencyString = result.replace("Latência média: ", "").replace(" ms", "").trim();
                             double latencia = Double.parseDouble(latencyString);
 
-                            if (latencia>limite) {
-                                System.out.println("Limite excedido! Latência: " + latencia + " ms, Limite: " + limite + " ms");
+                            if (latencia>task.getLimite()) {
+                                System.out.println("Limite excedido! Latência: " + latencia + " ms, Limite: " + task.getLimite() + " ms");
                                 executor.shutdown();
                                 System.exit(0);
                                 return; // Encerra o processo
@@ -178,18 +204,18 @@
 
                             break;
                         case 2: // iPerf servidor
-                            executeCommand(comando);
+                            executeCommand(task.getCommand());
                             System.out.println("Servidor iPerf iniciado.");
                             break;
                         case 3: // iPerf
-                            result = parseIperfOutput(executeCommand(comando));
+                            result = parseIperfOutput(executeCommand(task.getCommand()));
                             
                             if ("Largura de banda não encontrada.".equals(result)) break;
 
                             String auxIperf = result.split(":")[1].trim();
                             double banda = convertToGbits(auxIperf);
 
-                            if (banda>limite) {
+                            if (banda>task.getLimite()) {
                                 System.out.println("Alerta: Banda Larga excedeu o limite.");
                                 executor.shutdown();
                                 System.exit(0);
@@ -197,7 +223,7 @@
 
                             break;
                         case 4: 
-                            result = parseRAMOutput(executeCommand(comando));
+                            result = parseRAMOutput(executeCommand(task.getCommand()));
 
                             if ("Informação de RAM não encontrada.".equals(result)) break;
 
@@ -205,25 +231,25 @@
                             String aux = result.substring(result.lastIndexOf(" ")+1, percentIndex);
 
                             double alerta = Double.parseDouble(aux); // dá erro porque o ram vem em um float
-                            if (alerta > limite) {
+                            if (alerta > task.getLimite()) {
                                 System.out.println("Alerta: Uso de RAM excedeu o limite.");
                                 executor.shutdown();
                                 System.exit(0);
                             }
                             break;
                         default:
-                            result = "Tipo de tarefa desconhec  ido.";
+                            result = "Tipo de tarefa desconhecido.";
                     }
         
                     // Envia o resultado ao servidor
-                    if (tipoTarefa == 1 || tipoTarefa == 3 || tipoTarefa == 4) sendTaskResult(result);
+                    if (result!=null) sendTaskResult(result);
 
 
         
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-            }, 0, frequency, TimeUnit.SECONDS);
+            }, 0, task.getFrequency(), TimeUnit.SECONDS);
         }
 
         private String parsePingOutput(String output) {
