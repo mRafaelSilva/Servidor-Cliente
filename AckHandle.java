@@ -45,7 +45,7 @@ public class AckHandle {
     public void sendAck(int nSequencia, int clientId, InetAddress endereco, int porta, DatagramSocket socket) {
         try {
 
-            String mensagem = utils.criaDatagramaAck(3,nSequencia, clientId);
+            String mensagem = utils.criaDatagramaNormal(3,nSequencia, clientId);
 
             DatagramPacket pacote = new DatagramPacket(mensagem.getBytes(), mensagem.length(), endereco, porta);
 
@@ -61,7 +61,7 @@ public class AckHandle {
         public void sendEGuardaAck(int nSequencia, int clientId, InetAddress endereco, int porta, DatagramSocket socket) {
             try {
                 // Criação do datagrama
-                String message = utils.criaDatagramaAck(3,nSequencia, clientId);
+                String message = utils.criaDatagramaNormal(3,nSequencia, clientId);
     
                 DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), endereco, porta);
         

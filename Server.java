@@ -101,7 +101,7 @@ public class Server {
                 int tamanho = taskCommands.size();
                 String str = String.valueOf(tamanho);
 
-                String mensagemNTarefas = utils.criaDatagramaTarefa(4, sequenceNumber, cliente, str);
+                String mensagemNTarefas = utils.criaDatagramaTarefaResultado(4, sequenceNumber, cliente, str);
 
                 System.out.println("MENSAGEM A ENVIAR COM O NUMERO DE TAREFAS: " + mensagemNTarefas);
                 DatagramPacket nTarefasPacket = new DatagramPacket(
@@ -116,7 +116,7 @@ public class Server {
                     System.out.println("SEQUENCIA NUMBER DE ACK DE TAREFA: " + taskSequenceNumber);
 
                     // Cria a mensagem de tarefa específica
-                    String mensagemTarefa = utils.criaDatagramaTarefa(4, taskSequenceNumber, cliente, comandoTarefa);
+                    String mensagemTarefa = utils.criaDatagramaTarefaResultado(4, taskSequenceNumber, cliente, comandoTarefa);
 
                     // Cria e envia o pacote
                     DatagramPacket taskPacket = new DatagramPacket(

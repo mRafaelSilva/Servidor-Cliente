@@ -1,19 +1,17 @@
-    import java.io.BufferedReader;
-    import java.io.IOException;
-    import java.io.InputStreamReader;
-    import java.net.DatagramPacket;
-    import java.net.DatagramSocket;
-    import java.net.InetAddress;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-    import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
-    // Falta implementar a retransmissão no cliente. Caso alguma mensagem enviado pelo cliente não chegue ao servidor. Ou seja, não recebemos o ACK. O cliente deve voltar a enviar a sua mensagem e, só depois de recebido o ACK, prosseguir para a próxima etapa.
-    // Falta implementar o medir a CPU e o medir a RAM
 
-    //ADICIONAL: spam de clientes não registados.. como
+    //ADICIONAL: spam de clientes não registados.. 
 
     public class Client {
         private static final int SERVER_PORT = 12345;
@@ -77,7 +75,7 @@ import java.util.concurrent.TimeUnit;
                 int newSequenceNumber = sequenceNumber.getAndIncrement(); // Sequência 2
 
                 //Aqui ele pede uma tarefa
-                String requestMessage = utils.criaDatagramaPedirTarefaString(2, newSequenceNumber, clientId);
+                String requestMessage = utils.criaDatagramaNormal(2, newSequenceNumber, clientId);
                 DatagramPacket requestPacket = new DatagramPacket(
                         requestMessage.getBytes(), requestMessage.length(), serverAddress, SERVER_PORT
                 );
@@ -107,7 +105,7 @@ import java.util.concurrent.TimeUnit;
 
                 ackHandle.processAck(receivedSequenceNumber, clientId);
 
-                int numTarefas = Integer.parseInt(parts[4]);
+                int numTarefas = Integer.parseInt(parts[3]);
 
                 System.out.println("Número de tarefas a receber: " + numTarefas);
 
@@ -399,7 +397,7 @@ private double convertToGbits(String value) {
         private void sendTaskResult(String result) {
             try {
                 int newSequenceNumber = sequenceNumber.getAndIncrement();  // sequencia 3
-                String resultMessage = utils.criaDatagramaResultado(5, newSequenceNumber, clientId, result);
+                String resultMessage = utils.criaDatagramaTarefaResultado(5, newSequenceNumber, clientId, result);
 
                 DatagramPacket resultPacket = new DatagramPacket(
                         resultMessage.getBytes(), resultMessage.length(), serverAddress, SERVER_PORT
