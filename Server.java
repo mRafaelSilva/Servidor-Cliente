@@ -1,19 +1,16 @@
 import java.awt.SystemTray;
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
-import java.io.File;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.io.*;
+import java.net.*;
 
 // 1 É TIPO REGISTO
 // 2 É TIPO PEDIDO
@@ -24,8 +21,10 @@ import java.time.format.DateTimeFormatter;
 
 public class Server {
 
+    private static final int TCP_PORT = 54321; // Porta para conexões TCP
     private static final int PORT = 12345;
     private DatagramSocket socket;
+    private ServerSocket tcpSocket;
     private List<Integer> clients = new ArrayList<>();
     private AtomicInteger clientIdCounter = new AtomicInteger(1);
     private DatagramUtils utils;
@@ -34,9 +33,10 @@ public class Server {
 
     public Server() throws IOException {
         socket = new DatagramSocket(PORT);
+        tcpSocket = new ServerSocket(TCP_PORT);
         this.utils = new DatagramUtils();
         ackHandle = new AckHandle(socket,utils); // esta parte de iniciar vai ser assim visto que quero ter um socket a responder para cada cliente e depois fechá-lo?
-        System.out.println("Servidor iniciado na porta " + PORT);
+        System.out.println("Servidor iniciado na porta UDP: " + PORT + " e na porta TCP " + TCP_PORT);
     }
 
     public void listen() {
@@ -53,6 +53,8 @@ public class Server {
         }
     }
 
+
+    
     private void handleClient(DatagramPacket packet) {
         try {
             String message = new String(packet.getData(), 0, packet.getLength());
@@ -103,7 +105,6 @@ public class Server {
 
                 String mensagemNTarefas = utils.criaDatagramaTarefaResultado(4, sequenceNumber, cliente, str);
 
-                System.out.println("MENSAGEM A ENVIAR COM O NUMERO DE TAREFAS: " + mensagemNTarefas);
                 DatagramPacket nTarefasPacket = new DatagramPacket(
                     mensagemNTarefas.getBytes(), mensagemNTarefas.length(), clientAddress, clientPort
                 );
@@ -114,7 +115,6 @@ public class Server {
                 for (int i = 0; i < taskCommands.size(); i++) {
                     String comandoTarefa = taskCommands.get(i); // Acessa o comando no índice atual
                     int taskSequenceNumber = sequenceNumber + i + 1; // Número de sequência único para cada tarefa
-                    System.out.println("SEQUENCIA NUMBER DE ACK DE TAREFA: " + taskSequenceNumber);
 
                     // Cria a mensagem de tarefa específica
                     String mensagemTarefa = utils.criaDatagramaTarefaResultado(4, taskSequenceNumber, cliente, comandoTarefa);
@@ -209,10 +209,70 @@ public class Server {
     }
     
 
+    public void listenForAlerts() {
+    new Thread(() -> {
+        while (true) {
+            try (Socket clientSocket = tcpSocket.accept()) {
+                InputStream inputStream = clientSocket.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                String alertMessage = reader.readLine();
+
+                System.out.println("Alerta recebido: " + alertMessage);
+
+                // Tratamento do alerta
+                processAlert(alertMessage);
+
+                // Enviar ACK de volta ao cliente
+                OutputStream outputStream = clientSocket.getOutputStream();
+                PrintWriter writer = new PrintWriter(outputStream, true);
+                writer.println("ACK");
+            } catch (IOException e) {
+                System.err.println("Erro ao lidar com conexão TCP: " + e.getMessage());
+            }
+        }
+    }).start();
+}
+
+private void processAlert(String alertMessage) {
+    // Exemplo de parsing e log do alerta
+    String[] parts = alertMessage.split("\\|");
+    if (parts.length < 6) {
+        System.err.println("Alerta inválido recebido: " + alertMessage);
+        return;
+    }
+    try {   
+        double value = Double.parseDouble(parts[3]);
+        String parameter = parts[2];              
+        int clientId = Integer.parseInt(parts[1]); 
+        double limit = Double.parseDouble(parts[5]);
+
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String timestamp = now.format(formatter);
+
+        // Construir mensagem formatada
+        String logEntry = String.format("[%s] Alerta no cliente %d: o parâmetro %s tem o valor %.1f e ultrapassou o limite de %.1f.%n",
+        timestamp, clientId, parameter, value, limit);
+
+        // Construir o nome do ficheiro com base no ID do cliente
+        String fileName = "Resultados/Cliente" + clientId + ".txt";
+        // Registrar mensagem formatada no arquivo do cliente
+        Files.write(Paths.get(fileName), logEntry.getBytes(), StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+
+        System.out.println("Alerta registrado no ficheiro: " + fileName);
+        } catch (IOException e) {
+            System.err.println("Erro ao processar alerta: " + e.getMessage());
+        }
+    }
+    
+
+
     public static void main(String[] args) {
         Server server = null;
         try {
             server = new Server();
+            Server finalServer = server; // Referência efetivamente final
+            new Thread(() -> finalServer.listenForAlerts()).start();
             server.listen();
         } catch (IOException e) {
             e.printStackTrace();

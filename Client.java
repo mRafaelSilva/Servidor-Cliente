@@ -1,9 +1,12 @@
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -11,11 +14,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
-
-    //ADICIONAL: spam de clientes não registados.. 
-
     public class Client {
+        private static final int TCP_PORT = 54321; // Porta para conexões TCP
         private static final int SERVER_PORT = 12345;
         private Integer clientId = null;
         private DatagramSocket socket;
@@ -212,6 +212,7 @@ import java.util.concurrent.atomic.AtomicInteger;
             }
 
             executor.scheduleAtFixedRate(() -> {
+                boolean limiteExcedido = false;
                 try {
                     String result = null;
                     switch (task.getTipoTarefa()) {
@@ -223,10 +224,10 @@ import java.util.concurrent.atomic.AtomicInteger;
                             double latencia = Double.parseDouble(latencyString);
 
                             if (latencia>task.getLimite()) {
-                                System.out.println("Limite excedido! Latência: " + latencia + " ms, Limite: " + task.getLimite() + " ms");
-                                executor.shutdown();
-                                System.exit(0);
-                                return; // Encerra o processo
+                                System.out.println("Alerta: Latência excedeu o limite.");
+                                String alertMessage = "ALERTA|" + clientId +"|latência|" + latencia + "|limit|" + task.getLimite();
+                                sendAlertToServer(alertMessage);
+                                limiteExcedido = true;
                             }
 
                             break;
@@ -244,8 +245,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
                             if (banda>task.getLimite()) {
                                 System.out.println("Alerta: Banda Larga excedeu o limite.");
-                                executor.shutdown();
-                                System.exit(0);
+                                String alertMessage = "ALERTA|" + clientId +"|banda|" + banda + "|limit|" + task.getLimite();
+                                sendAlertToServer(alertMessage);
+                                limiteExcedido = true;
                             }
 
                             break;
@@ -260,8 +262,9 @@ import java.util.concurrent.atomic.AtomicInteger;
                             double alerta = Double.parseDouble(aux); // dá erro porque o ram vem em um float
                             if (alerta > task.getLimite()) {
                                 System.out.println("Alerta: Uso de RAM excedeu o limite.");
-                                executor.shutdown();
-                                System.exit(0);
+                                String alertMessage = "ALERTA|" + clientId +"|ram|" + alerta + "|limit|" + task.getLimite();
+                                sendAlertToServer(alertMessage);
+                                limiteExcedido = true;
                             }
                             break;
                         default:
@@ -269,7 +272,7 @@ import java.util.concurrent.atomic.AtomicInteger;
                     }
         
                     // Envia o resultado ao servidor
-                    if (result!=null) sendTaskResult(result);
+                    if (result!=null && !limiteExcedido) sendTaskResult(result);
 
 
         
@@ -365,20 +368,6 @@ import java.util.concurrent.atomic.AtomicInteger;
             }
         }
 
-        /* 
-        private String parseRAMOutput(String output) {
-            String[] lines = output.split("\n");
-            for (String line : lines) {
-                if (line.startsWith("Mem:")) { // Encontra a linha que começa com "Mem:"
-                    String[] values = line.split("\\s+"); // Divide pelos espaços em branco
-                    if (values.length > 2) {
-                        return "RAM utilizada: " + values[2]; // O terceiro valor (índice 2) é o 'used'
-                    }
-                }
-            }
-            return "Informação de RAM não encontrada.";
-        }
-*/
 private double convertToGbits(String value) {
     double multiplier = 1.0; // Default é Gbits
     if (value.endsWith("Mbits/sec")) {
@@ -392,6 +381,28 @@ private double convertToGbits(String value) {
     }
     return Double.parseDouble(value) * multiplier;
 }
+
+
+    private void sendAlertToServer(String alertMessage) {
+        try (Socket tcpSocket = new Socket(serverAddress, TCP_PORT)) {
+            OutputStream outputStream = tcpSocket.getOutputStream();
+            PrintWriter writer = new PrintWriter(outputStream, true);
+            writer.println(alertMessage);
+            System.out.println("Alerta enviado ao servidor via TCP: " + alertMessage);
+
+            // Lida com o ACK via TCP (se necessário)
+            BufferedReader reader = new BufferedReader(new InputStreamReader(tcpSocket.getInputStream()));
+            String ack = reader.readLine();
+            if ("ACK".equals(ack)) {
+                System.out.println("ACK recebido do servidor para o alerta.");
+            } else {
+                System.out.println("Resposta inesperada do servidor: " + ack);
+            }
+        } catch (IOException e) {
+            System.err.println("Erro ao enviar alerta ao servidor: " + e.getMessage());
+        }
+    }
+
 
     private String executeCommand(String command) {
         StringBuilder output = new StringBuilder();
