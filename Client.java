@@ -4,6 +4,8 @@ import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -101,31 +103,57 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 
                 if (tipo == 4) {
-                int receivedSequenceNumber = Integer.parseInt(parts[1]);
+                    
+                    int receivedSequenceNumber = Integer.parseInt(parts[1]);
+                    ackHandle.processAck(receivedSequenceNumber, clientId);
+                    
+                    int numTarefas = Integer.parseInt(parts[3]);
+                    System.out.println("Número de tarefas a receber: " + numTarefas);
 
-                ackHandle.processAck(receivedSequenceNumber, clientId);
+                    Set<String> tarefasRecebidas = new HashSet<>();
 
-                int numTarefas = Integer.parseInt(parts[3]);
+                    int tarefasProcessadas = 0;
 
-                System.out.println("Número de tarefas a receber: " + numTarefas);
+                    while (tarefasProcessadas < numTarefas) {
 
-                for (int i = 0; i < numTarefas; i++) { 
-                    byte[] taskBuffer = new byte[1024];
-                    DatagramPacket taskPacket = new DatagramPacket(taskBuffer, taskBuffer.length);
-                    socket.receive(taskPacket);
+                        try {
+                            byte[] taskBuffer = new byte[1024];
+                            DatagramPacket taskPacket = new DatagramPacket(taskBuffer, taskBuffer.length);
+                            socket.receive(taskPacket);
 
-                    String taskMessage = new String(taskPacket.getData(), 0, taskPacket.getLength());
-                    System.out.println("AQUI: " + taskMessage);
-                    Task task = parseTask(taskMessage);
+                            // Extrair mensagem e verificar duplicação
+                            String taskMessage = new String(taskPacket.getData(), 0, taskPacket.getLength());
+                            System.out.println("AQUI: " + taskMessage);
 
-                    if (task != null && task.getClientId() == clientId) {
-                        System.out.println("Tarefa recebida: " + task.getTaskId());
-                        ackHandle.sendAck(sequenceNumber.getAndIncrement(), clientId, serverAddress, SERVER_PORT, socket);
-                        executeTask(task);
-                    } else {
-                        System.out.println("Tarefa inválida ou não atribuída a este cliente.");
+                            // Se já foi processada, ignorar
+                            if (tarefasRecebidas.contains(taskMessage)) {
+                                System.out.println("Mensagem duplicada ignorada: " + taskMessage);
+                                continue;
+                            }
+
+                            Task task = parseTask(taskMessage);
+
+                            if (task != null && task.getClientId() == clientId) {
+                                tarefasRecebidas.add(taskMessage);
+                                tarefasProcessadas++;
+
+                                System.out.println("Tarefa recebida: " + task.getTaskId());
+
+                                ackHandle.sendAck(sequenceNumber.getAndIncrement(), clientId, serverAddress, SERVER_PORT, socket);
+
+                                executeTask(task);
+
+                             } else {
+                                System.out.println("Tarefa inválida ou não atribuída a este cliente.");
+                             }
+
+                            
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
                     }
-                }
+                    System.out.println("Todas as tarefas foram recebidas e processadas.");
                 }
 
             } catch (IOException e) {
