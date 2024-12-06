@@ -325,7 +325,15 @@ import java.util.concurrent.atomic.AtomicInteger;
             } else if (value.endsWith("Gi")) {
                 value = value.replace("Gi", "");    
             }
-            return Double.parseDouble(value) * multiplier;
+            
+            try {
+                // Substitui vírgulas por pontos, se necessário
+                value = value.replace(",", ".");
+                return Double.parseDouble(value) * multiplier;
+            } catch (NumberFormatException e) {
+                System.err.println("Erro ao converter valor para Double: " + value);
+                return 0.0; // Retorna um valor padrão ou lida de forma personalizada
+            }
         }
 
         /* 
