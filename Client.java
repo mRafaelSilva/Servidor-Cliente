@@ -109,6 +109,7 @@ import java.util.concurrent.atomic.AtomicInteger;
                     
                     int numTarefas = Integer.parseInt(parts[3]);
                     System.out.println("Número de tarefas a receber: " + numTarefas);
+                    ackHandle.sendAck(receivedSequenceNumber, clientId, serverAddress, SERVER_PORT, socket);
 
                     Set<String> tarefasRecebidas = new HashSet<>();
 

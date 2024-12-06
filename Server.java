@@ -108,6 +108,7 @@ public class Server {
                     mensagemNTarefas.getBytes(), mensagemNTarefas.length(), clientAddress, clientPort
                 );
                 socket.send(nTarefasPacket);
+                ackHandle.criaAckPendente(sequenceNumber, cliente, clientAddress, PORT, nTarefasPacket);
                 
                 // Iterar pela lista de comandos das tarefas
                 for (int i = 0; i < taskCommands.size(); i++) {
