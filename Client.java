@@ -122,7 +122,7 @@ import java.util.concurrent.atomic.AtomicInteger;
                             DatagramPacket taskPacket = new DatagramPacket(taskBuffer, taskBuffer.length);
                             socket.receive(taskPacket);
 
-                            // Extrair mensagem e verificar duplicação
+                            // Extrair a mensagem e verificar duplicação
                             String taskMessage = new String(taskPacket.getData(), 0, taskPacket.getLength());
                             System.out.println("AQUI: " + taskMessage);
 
@@ -259,7 +259,7 @@ import java.util.concurrent.atomic.AtomicInteger;
                             int percentIndex = result.indexOf("%"); // Localiza o índice de "%"
                             String aux = result.substring(result.lastIndexOf(" ")+1, percentIndex);
 
-                            double alerta = Double.parseDouble(aux); // dá erro porque o ram vem em um float
+                            double alerta = Double.parseDouble(aux); // dá erro porque o RAM vem em um float
                             if (alerta > task.getLimite()) {
                                 System.out.println("Alerta: Uso de RAM excedeu o limite.");
                                 String alertMessage = "ALERTA|" + clientId +"|ram|" + alerta + "|limit|" + task.getLimite();
@@ -428,7 +428,7 @@ private double convertToGbits(String value) {
                 }
             }
 
-            // Aguarda o término do processo
+            // espera o processo acabar
             int exitCode = process.waitFor();
             if (exitCode != 0) {
                 output.append("Comando finalizado com código de erro: ").append(exitCode).append("\n");

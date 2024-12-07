@@ -64,12 +64,12 @@ public class AckHandle {
     
                 DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), endereco, porta);
         
-                // Adicionar à lista de pendências
+                // Adiciona à lista de pendências
                 synchronized (pendingAcks) {
                     pendingAcks.add(new PendingAck(nSequencia, clientId, endereco, porta, packet));
                 }
         
-                // Enviar o pacote
+                // Envia o pacote
                 socket.send(packet);
                 System.out.println("Mensagem enviada para " + endereco + ":" + porta + " com seq=" + nSequencia);
             } catch (IOException e) {

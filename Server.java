@@ -72,7 +72,7 @@ public class Server {
                 clients.add(newClientId);
 
                 String fileName = "Resultados/Cliente" + newClientId + ".txt";
-                Files.write(Paths.get(fileName), ("Cliente " + newClientId + " registrado.\n").getBytes());
+                Files.write(Paths.get(fileName), ("Cliente " + newClientId + " registado.\n").getBytes());
 
                 ackHandle.sendEGuardaAck(sequenceNumber, newClientId, clientAddress, clientPort, socket);
 
@@ -111,7 +111,7 @@ public class Server {
                 socket.send(nTarefasPacket);
                 ackHandle.criaAckPendente(sequenceNumber, cliente, clientAddress, PORT, nTarefasPacket);
                 
-                // Iterar pela lista de comandos das tarefas
+                // Itera pela lista de comandos das tarefas
                 for (int i = 0; i < taskCommands.size(); i++) {
                     String comandoTarefa = taskCommands.get(i); // Acede ao comando no índice atual
                     int taskSequenceNumber = sequenceNumber + i + 1; // Número de sequência único para cada tarefa
@@ -126,7 +126,7 @@ public class Server {
                     socket.send(taskPacket);
                     System.out.println("Pacote enviado para a tarefa: " + comandoTarefa);
 
-                    // Criar um ACK pendente para a tarefa enviada
+                    // Cria um ACK pendente para a tarefa enviada
                     ackHandle.criaAckPendente(taskSequenceNumber, cliente, clientAddress, clientPort, taskPacket);
                 }
 
@@ -162,7 +162,6 @@ public class Server {
     }
 
 
-    // Tirar esta função daqui
     private List<String> readTasksFromJSON(int clientId, InetAddress clientAddress) {
         List<String> taskList = new ArrayList<>();
         try {
