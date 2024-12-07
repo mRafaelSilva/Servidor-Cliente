@@ -80,7 +80,7 @@ public class Server {
             }
 
             if (parts.length < 3 || parts[2] == null || parts[2].isEmpty()) {
-                System.out.println("Mensagem inválida recebida, a ignorar.");
+                System.out.println("A mensagem recebida é inválida");
                 return;
             }
 
@@ -92,7 +92,7 @@ public class Server {
             }
 
             if (type == 2) {
-                System.out.println("O cliente com o id " + cliente + " está a pedir tarefas");
+                System.out.println("O cliente com o id " + cliente + " está a pedir tarefas.");
                     
                 // envia um pacote com a tarefa
                 List<String> taskCommands = readTasksFromJSON(cliente, clientAddress);
@@ -142,7 +142,7 @@ public class Server {
             if (type == 5) {
                 String result = parts[3];
 
-                System.out.println("Resultado recebido do cliente " + cliente + ":" + result);
+                System.out.println("Resultado recebido do cliente " + cliente);
                 ackHandle.sendAck(sequenceNumber, cliente, clientAddress, clientPort, socket);
 
                 LocalDateTime now = LocalDateTime.now();
