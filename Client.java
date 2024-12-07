@@ -299,14 +299,14 @@ import java.util.concurrent.atomic.AtomicInteger;
         private String parseIperfOutput(String output) {
 
             System.out.println("OUTPUT: " + output);
-            // Divida a saída em linhas
+            // Divide a saída em linhas
             String[] lines = output.split("\n");
             
-            // Percorra cada linha para buscar a que contém "bits/sec"
+            // Percorre cada linha para encontrar a que contém "bits/sec"
             for (String line : lines) {
                 if (line.contains("bits/sec")) {
                     try {
-                        // Normalize os espaços e tente capturar a largura de banda
+                        // tenta capturar a largura de banda
                         String normalizedLine = line.trim().replaceAll("\\s+", " ");
                         String regex = "(\\d+(\\.\\d+)?\\s*[KMG]?bits/sec)";
                         java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(regex).matcher(normalizedLine);
@@ -314,7 +314,6 @@ import java.util.concurrent.atomic.AtomicInteger;
                             return "Largura de banda: " + matcher.group(1);
                         }
                     } catch (Exception e) {
-                        // Log para depuração
                         System.err.println("Erro ao analisar a linha: " + line);
                         e.printStackTrace();
                     }
@@ -333,7 +332,7 @@ import java.util.concurrent.atomic.AtomicInteger;
                         String totalStr = values[1]; // Segundo valor (índice 1) é 'total'
                         String usedStr = values[2];  // Terceiro valor (índice 2) é 'used'
         
-                        // Remove possíveis sufixos como "Gi", "Mi", etc.
+                        // Remove sufixos como "Gi", "Mi", etc.
                         double total = convertToGiBytes(totalStr);
                         double used = convertToGiBytes(usedStr);
         
@@ -348,7 +347,7 @@ import java.util.concurrent.atomic.AtomicInteger;
             return "Informação de RAM não encontrada.";
         }
         
-        // Função auxiliar para converter valores legíveis em bytes para números em GiB
+        // Função auxiliar para converter bytes em GiB
         private double convertToGiBytes(String value) {
             double multiplier = 1.0; // Default é GiB
             if (value.endsWith("Mi")) {
@@ -413,7 +412,7 @@ private double convertToGbits(String value) {
             // Executa o comando
             Process process = processBuilder.start();
 
-            // Captura a saída (stdout)
+            // (stdout)
             try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -421,7 +420,7 @@ private double convertToGbits(String value) {
                 }
             }
 
-            // Captura possíveis erros (stderr)
+            // (stderr)
             try (var errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
                 String line;
                 while ((line = errorReader.readLine()) != null) {

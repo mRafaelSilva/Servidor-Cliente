@@ -35,7 +35,7 @@ public class Server {
         socket = new DatagramSocket(PORT);
         tcpSocket = new ServerSocket(TCP_PORT);
         this.utils = new DatagramUtils();
-        ackHandle = new AckHandle(socket,utils); // esta parte de iniciar vai ser assim visto que quero ter um socket a responder para cada cliente e depois fechá-lo?
+        ackHandle = new AckHandle(socket,utils); 
         System.out.println("Servidor iniciado na porta UDP: " + PORT + " e na porta TCP " + TCP_PORT);
     }
 
@@ -80,7 +80,7 @@ public class Server {
             }
 
             if (parts.length < 3 || parts[2] == null || parts[2].isEmpty()) {
-                System.out.println("Mensagem inválida recebida, ignorando.");
+                System.out.println("Mensagem inválida recebida, a ignorar.");
                 return;
             }
 
@@ -113,7 +113,7 @@ public class Server {
                 
                 // Iterar pela lista de comandos das tarefas
                 for (int i = 0; i < taskCommands.size(); i++) {
-                    String comandoTarefa = taskCommands.get(i); // Acessa o comando no índice atual
+                    String comandoTarefa = taskCommands.get(i); // Acede ao comando no índice atual
                     int taskSequenceNumber = sequenceNumber + i + 1; // Número de sequência único para cada tarefa
 
                     // Cria a mensagem de tarefa específica
@@ -222,7 +222,7 @@ public class Server {
                 // Tratamento do alerta
                 processAlert(alertMessage);
 
-                // Enviar ACK de volta ao cliente
+                // Envia o ACK de volta ao cliente
                 OutputStream outputStream = clientSocket.getOutputStream();
                 PrintWriter writer = new PrintWriter(outputStream, true);
                 writer.println("ACK");
@@ -250,16 +250,16 @@ private void processAlert(String alertMessage) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         String timestamp = now.format(formatter);
 
-        // Construir mensagem formatada
+        // Constrói a mensagem formatada
         String logEntry = String.format("[%s] Alerta no cliente %d: o parâmetro %s tem o valor %.1f e ultrapassou o limite de %.1f.%n",
         timestamp, clientId, parameter, value, limit);
 
-        // Construir o nome do ficheiro com base no ID do cliente
+        // Constrói o nome do ficheiro com base no ID do cliente
         String fileName = "Resultados/Cliente" + clientId + ".txt";
-        // Registrar mensagem formatada no arquivo do cliente
+        // Regista a mensagem formatada no arquivo do cliente
         Files.write(Paths.get(fileName), logEntry.getBytes(), StandardOpenOption.APPEND, StandardOpenOption.CREATE);
 
-        System.out.println("Alerta registrado no ficheiro: " + fileName);
+        System.out.println("Alerta registado no ficheiro: " + fileName);
         } catch (IOException e) {
             System.err.println("Erro ao processar alerta: " + e.getMessage());
         }
@@ -271,7 +271,7 @@ private void processAlert(String alertMessage) {
         Server server = null;
         try {
             server = new Server();
-            Server finalServer = server; // Referência efetivamente final
+            Server finalServer = server; 
             new Thread(() -> finalServer.listenForAlerts()).start();
             server.listen();
         } catch (IOException e) {

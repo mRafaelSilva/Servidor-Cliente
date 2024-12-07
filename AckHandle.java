@@ -17,7 +17,6 @@ public class AckHandle {
     private final ScheduledExecutorService retransmissionExecutor = Executors.newScheduledThreadPool(1); // Thread para retransmissão
     private static final int RETRANSMISSION_INTERVAL_MS = 10000; // Intervalo de retransmissão em milissegundos
 
-    // aqui tenho de ver se vai ser preciso criar um novo socket
     public AckHandle(DatagramSocket socket,DatagramUtils utils) {
         this.socket = socket;
         this.utils = utils;
@@ -129,9 +128,9 @@ public class AckHandle {
         }, RETRANSMISSION_INTERVAL_MS, RETRANSMISSION_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * Encerra o executor de retransmissão.
-     */
+    
+    // Encerra o executor de retransmissão.
+    
     public void stopRetransmissionTask() {
         retransmissionExecutor.shutdown();
         try {

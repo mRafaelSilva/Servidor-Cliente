@@ -1,11 +1,11 @@
 public class DatagramUtils {
     
-    //Criar datagrama que envia a tarefa e que envia resultados
+    //Cria datagrama que envia a tarefa e que envia resultados
     public String criaDatagramaTarefaResultado(int type, int seqNum, int clientId, String command) {
         return type + "|" + seqNum + "|" + clientId + "|" + command;
     }
 
-    //Usas em Acks ou para o cliente pedir Tarefas
+    //Usado em Acks ou para o cliente pedir Tarefas
     public String criaDatagramaNormal(int type, int seqNum, int clientId) {
         return type + "|" + seqNum + "|" + clientId;
     }
